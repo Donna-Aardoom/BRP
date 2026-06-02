@@ -118,7 +118,7 @@ def load_dataset_errors(cat_exoplanet='data/exoplanet.eu_catalog_20-01-26_15_03_
     dataset_exo = pandas dataframe with exoplanets with mass & radius measurements
                   the mass/radius are in Earth mass/radius.
     """
-    
+
     # Importing exoplanet dataset
     dataset_exo = pd.read_csv(cat_exoplanet, index_col=0)
 
@@ -358,27 +358,36 @@ def load_dataset_RV(cat_exoplanet="data/exoplanet.eu_catalog_20-01-26_15_03_11.c
 
 
 def split_data(dataset):
-    dataset_exo = dataset[:-8]
-    dataset_solar = dataset[-8:]
-    
-    features = dataset_exo.drop(['radius'], axis=1)
-    label = dataset_exo['radius']
+    dataset = dataset.copy()
+
+    features_needed = [
+        'mass',
+        'semi_major_axis',
+        'temp_eq',
+        'star_luminosity',
+        'star_radius',
+        'star_teff',
+        'star_mass'
+    ]
+
+    features = dataset[features_needed]
+    label = dataset['radius']
+
     X_train, X_test, y_train, y_test = train_test_split(
         features,
         label,
         test_size=0.25,
         random_state=23
     )
-    forced_for_train = [
+    forced_for_train = ["Mercury", "Venus", "Earth", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune",
     'Kepler-12 b', 'WASP-94 Ab', 'HAT-P-47 b',
-    'Jupiter', 'Saturn', 'Neptune', 'Uranus', 'Mars', "Earth", 'Venus',
     'kappa And b', 'HD 984 b', 'Kepler-16 (AB)b', 'Kepler-34 (AB)b', 'KELT-9 Ab'
-]
+    ]
     forced_for_test = [
     'HAT-P-32 Ab', 'TOI-3071 b', 'WASP-122 Ab', 'TOI-3976 Ab', 'Kepler-4 b',
     'LHS 1140 b', 'Gliese 12 b', 'TOI-1231 b',
     'TOI-201 c', 'TOI-561 f', 'HIP 41378 f',
-]
+    ]
     for name in forced_for_train:
         if name in X_test.index and name not in X_train.index:
             X_train = pd.concat([X_train, X_test.loc[[name]]])
@@ -413,18 +422,7 @@ def split_data(dataset):
                 X_test = X_test.drop(index=swap_name)
                 y_test = y_test.drop(index=swap_name)
 
-    features_solar = dataset_solar.drop(['radius'], axis=1)
-    label_solar = dataset_solar['radius']
-    X_train_solar, X_test_solar, y_train_solar, y_test_solar = train_test_split(
-        features_solar,
-        label_solar,
-        test_size=0.25,
-        random_state=23
-    )
-    X_train = pd.concat([X_train, X_train_solar, X_test_solar])
-    X_test = pd.concat([X_test])
-    y_train = pd.concat([y_train, y_train_solar, y_test_solar])
-    y_test = pd.concat([y_test])
+    
     train_test_values = [
         X_train.values,
         X_test.values,

@@ -28,7 +28,6 @@ def load_dataset(cat_exoplanet='data/exoplanet.eu_catalog_20-01-26_15_03_11.csv'
                                 'star_mass',
                                 'star_metallicity',
                                 'number_of_planets'],
-                remove_bad_planets=True,
                 solar=True):
 
     """
@@ -40,10 +39,7 @@ def load_dataset(cat_exoplanet='data/exoplanet.eu_catalog_20-01-26_15_03_11.csv'
     cat_exoplanet: CSV file from exoplanet.eu
     cat_solar: CSV file from Planetary sheet
     feature_names: list of features to select in the dataset.
-    remove_bad_planets: txt file with the names of the exoplanets we have left
-                        out of the dataset. The reason for removing these 
-                        planets are based on their uncertainties.
-
+    
     Returns:
     dataset_exo = pandas dataframe with exoplanets with mass & radius 
                   measurements. mass/radii are in Earth mass/radii
@@ -82,17 +78,7 @@ def load_dataset(cat_exoplanet='data/exoplanet.eu_catalog_20-01-26_15_03_11.csv'
         dataset_exo = dataset_exo[feature_names]
         dataset_solar_system = dataset_solar_system[feature_names]
 
-    #We remove planets with the Otegi et al 2020 selection and when the error
-    # is bigger then the value itself.
-    if remove_bad_planets:
-        try:
-            bad_planet = pd.read_csv('data/bad_planets.txt', sep='\t', header=None, index_col=0)
-            dataset_exo = dataset_exo.drop(bad_planet.index.intersection(dataset_exo.index))
-        except pd.errors.EmptyDataError:
-            pass
-    else:
-        print("No bad planets removed")
-    
+
 
     # Converting from Jupiter to Earth mass/radius
     print("Convert planets mass/radius from Jupiter to Earth.")
@@ -163,6 +149,7 @@ def load_dataset_errors(cat_exoplanet='data/exoplanet.eu_catalog_20-01-26_15_03_
     dataset_exo =            pandas dataframe with exoplanets with mass & radius measurements
                              the mass/radius are in Earth mass/radius.
     """
+
     # load the dataset 
     dataset_exo = pd.read_csv(cat_exoplanet, index_col=0)
 
@@ -346,6 +333,7 @@ def split_data_mass(dataset):
         number_of_planets
         eccentricity
         star_metallicity
+        
     Returns:
         features_needed
         X_train, X_test, y_train, y_test

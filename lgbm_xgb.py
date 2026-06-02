@@ -5,7 +5,6 @@ from lightgbm import LGBMRegressor
 from xgboost import XGBRegressor
 from sklearn.model_selection import RandomizedSearchCV, train_test_split
 from sklearn.metrics import r2_score, root_mean_squared_error
-from scipy.stats import pearsonr
 import datetime
 import joblib
 import os
@@ -15,19 +14,9 @@ import numpy as np
 
 
 # split dataset fundtion to split into train and test sets, while forcing a few named planets into the test set
-def split_data(dataset):
-    """
-    Create one consistent train/test split for both exoplanets and solar-system
-    planets, while forcing a few named planets into the test set.
 
-    Returns:
-        features_needed
-        X_train, X_test, y_train, y_test
-        train_test_values
-        train_test_sets
-    """
-    dataset_exo = dataset[:-8]
-    dataset_solar = dataset[-8:]
+def split_data(dataset):
+    dataset = dataset.copy()
 
     features_needed = [
         'mass',
@@ -39,8 +28,8 @@ def split_data(dataset):
         'star_mass'
     ]
 
-    features = dataset_exo[features_needed]
-    label = dataset_exo['radius']
+    features = dataset[features_needed]
+    label = dataset['radius']
 
     X_train, X_test, y_train, y_test = train_test_split(
         features,
@@ -48,62 +37,57 @@ def split_data(dataset):
         test_size=0.25,
         random_state=23
     )
-
-    default_names = [
-        'TOI-561 b',
-        'HATS-35 b',
-        'CoRoT-13 b',
-        'Kepler-75 b',
-        'WASP-17 b',
-        'Kepler-20 Ac'
+    forced_for_train = ["Mercury", "Venus", "Earth", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune",
+    'Kepler-12 b', 'WASP-94 Ab', 'HAT-P-47 b',
+    'kappa And b', 'HD 984 b', 'Kepler-16 (AB)b', 'Kepler-34 (AB)b', 'KELT-9 Ab'
     ]
+    forced_for_test = [
+    'HAT-P-32 Ab', 'TOI-3071 b', 'WASP-122 Ab', 'TOI-3976 Ab', 'Kepler-4 b',
+    'LHS 1140 b', 'Gliese 12 b', 'TOI-1231 b',
+    'TOI-201 c', 'TOI-561 f', 'HIP 41378 f',
+    ]
+    for name in forced_for_train:
+        if name in X_test.index and name not in X_train.index:
+            X_train = pd.concat([X_train, X_test.loc[[name]]])
+            y_train = pd.concat([y_train, y_test.loc[[name]]])
+            X_test = X_test.drop(index=name)
+            y_test = y_test.drop(index=name)
+            swap_candidates = [
+                idx for idx in X_train.index
+                if idx not in forced_for_train and idx != name
+            ]
+            if len(swap_candidates) > 0:
+                swap_name = swap_candidates[0]
+                X_test = pd.concat([X_test, X_train.loc[[swap_name]]])
+                y_test = pd.concat([y_test, y_train.loc[[swap_name]]])
+                X_train = X_train.drop(index=swap_name)
+                y_train = y_train.drop(index=swap_name)
 
-    for name in default_names:
+    for name in forced_for_test:
         if name in X_train.index and name not in X_test.index:
             X_test = pd.concat([X_test, X_train.loc[[name]]])
             y_test = pd.concat([y_test, y_train.loc[[name]]])
-
             X_train = X_train.drop(index=name)
             y_train = y_train.drop(index=name)
-
             swap_candidates = [
                 idx for idx in X_test.index
-                if idx not in default_names and idx != name
+                if idx not in forced_for_test and idx != name
             ]
-
             if len(swap_candidates) > 0:
                 swap_name = swap_candidates[0]
-
                 X_train = pd.concat([X_train, X_test.loc[[swap_name]]])
                 y_train = pd.concat([y_train, y_test.loc[[swap_name]]])
-
                 X_test = X_test.drop(index=swap_name)
                 y_test = y_test.drop(index=swap_name)
 
-    features_solar = dataset_solar[features_needed]
-    label_solar = dataset_solar['radius']
-
-    X_train_solar, X_test_solar, y_train_solar, y_test_solar = train_test_split(
-        features_solar,
-        label_solar,
-        test_size=0.25,
-        random_state=9
-    )
-
-    X_train = pd.concat([X_train, X_train_solar])
-    X_test = pd.concat([X_test, X_test_solar])
-    y_train = pd.concat([y_train, y_train_solar])
-    y_test = pd.concat([y_test, y_test_solar])
-
+    
     train_test_values = [
         X_train.values,
         X_test.values,
         y_train.values,
         y_test.values
     ]
-
     train_test_sets = [X_train, X_test, y_train, y_test]
-
     return features_needed, X_train, X_test, y_train, y_test, train_test_values, train_test_sets
 
 def lightgbm(dataset, model=None, fit=False):
@@ -264,7 +248,6 @@ def xgboost(dataset, model=None, fit=False):
         xgb = joblib.load(model)
 
     
-    
     # predict the radius for the train and test sets
     y_train_predict = xgb.predict(X_train)
     y_test_predict = xgb.predict(X_test)
@@ -288,6 +271,5 @@ def xgboost(dataset, model=None, fit=False):
     "rmse_train": root_mean_squared_error(y_train, y_train_predict),
     "rmse_test": root_mean_squared_error(y_test, y_test_predict),
     "mean_ratio": mean_ratio}
-
 
     return xgb, y_test_predict, train_test_values, train_test_sets, metrics
