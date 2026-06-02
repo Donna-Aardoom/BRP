@@ -1,2 +1,2 @@
-# BRP-
-Exploring the properties ofexoplanets with machine learning
+# BRP
+Exploring the properties of exoplanets with machine learning
