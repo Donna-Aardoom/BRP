@@ -10,6 +10,8 @@ time1 = time.time()
 dataset_all = "data/exoplanet.eu_catalog_20-01-26_15_03_11.csv"
 cat_solar = 'data/solar_system_planets_catalog.csv'
 
+dataset = bem.load_dataset()
+
 dataset = bem.load_dataset_errors(remove_bad_planets=True)
 
 
@@ -21,7 +23,7 @@ selection_uncertainty = (
 print("Number of removed planets due to Otegi uncertainty selection: ", len(dataset[~selection_uncertainty])  )
 dataset = dataset[selection_uncertainty]
 
-# Remove manually excluded planet(s)
+# Remove manually excluded planet
 planets_to_remove = ["K2-123 b"]
 dataset = dataset.drop(index=planets_to_remove, errors="ignore")
 

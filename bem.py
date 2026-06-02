@@ -31,6 +31,7 @@ def load_dataset(cat_exoplanet='data/exoplanet.eu_catalog_20-01-26_15_03_11.csv'
                                'star_radius', 
                                'star_teff',
                                'star_mass',
+                               'star_metallicity',
                                'radius'],
                 solar=True):
     """
@@ -135,7 +136,10 @@ def load_dataset_errors(cat_exoplanet='data/exoplanet.eu_catalog_20-01-26_15_03_
                                'star_radius', 
                                'star_radius_error_min','star_radius_error_max',
                                'star_teff',
-                               'star_teff_error_min', 'star_teff_error_max']]
+                               'star_teff_error_min', 'star_teff_error_max', 
+                               # a mistake! but it corresponds with our results;
+                            #    'star_metallicity'
+                               ]]
 
     dataset_solar_system = pd.read_csv(cat_solar, index_col=0)
     
@@ -157,7 +161,10 @@ def load_dataset_errors(cat_exoplanet='data/exoplanet.eu_catalog_20-01-26_15_03_
                                             'star_radius',
                                             'star_mass',
                                             'star_teff',
-                                            'radius']
+                                            'radius', 
+                                            # a mistake! but it corresponds with our results;
+                                            # 'star_metallicity'
+                                            ]
                                             )
 
     dataset_solar_system = dataset_solar_system.dropna(subset=['mass',
