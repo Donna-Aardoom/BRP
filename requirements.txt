@@ -1,0 +1,11 @@
+numpy
+pandas
+matplotlib
+scikit-learn
+scipy
+joblib
+lightgbm
+xgboost
+astropy
+uncertainties
+lime
