@@ -11,14 +11,16 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib import cm
+
 import os
-import bem
+import bem 
 
 print("#################### Now is LOF code ###################")
 
 # Load data
 dataset_all = "data/exoplanet.eu_catalog_20-01-26_15_03_11.csv"
 cat_solar = "data/solar_system_planets_catalog.csv"
+
 
 dataset = bem.load_dataset(
     cat_exoplanet=dataset_all,
@@ -36,7 +38,7 @@ dataset_error = dataset_error.loc[dataset.index]
 print(f"Dataset columns: {dataset.columns.tolist()}, with length of {len(dataset)}")
 print(f"The amount of columns we use is: {len(dataset.columns.tolist())}")
 
-os.makedirs("Figures", exist_ok=True)
+os.makedirs("figures", exist_ok=True)
 os.makedirs("data", exist_ok=True)
 
 # ---------------------------
@@ -84,7 +86,54 @@ ax.set_xlabel(r"Mass ($M_\oplus$)")
 ax.set_ylabel(r"Radius ($R_\oplus$)")
 ax.set_title("LOF Outlier Detection excluding uncertainties: Mass vs Radius")
 plt.tight_layout()
-plt.savefig("Figures/LOF_outliers_excl_uncer.png", dpi=300)
+plt.savefig("figures/LOF_outliers_excl_uncer.pdf", dpi=300)
+
+# ---------------------------
+# LOF on whole dataset INCLUDING uncertainties
+# ---------------------------
+model = LocalOutlierFactor(n_neighbors=20, contamination=0.05)
+y_pred = model.fit_predict(dataset_error)
+lof = model.negative_outlier_factor_
+
+print(f"The mean LOF score for the outliers is: {np.mean(lof[y_pred == -1] * -1)}")
+print(f"The mean LOF score for the inliers is: {np.mean(lof[y_pred == 1] * -1)}")
+
+LOF_outliers = dataset_error[y_pred == -1]
+LOF_inliers = dataset_error[y_pred == 1]
+
+print("Saving the inliers and outliers predicted by LOF to csv files.")
+LOF_inliers.to_csv("data/LOF_inliers.csv", index=True)
+LOF_outliers.to_csv("data/LOF_outliers.csv", index=True)
+
+print(f"Number of outliers detected: {len(LOF_outliers)}")
+print(f"Number of inliers detected: {len(LOF_inliers)}")
+
+som = len(LOF_outliers) + len(LOF_inliers)
+assert som == len(dataset_error), f"Total number of points should be {len(dataset_error)}, but got {som}"
+
+fig, ax = plt.subplots()
+scatter0 = ax.scatter(
+    LOF_inliers["mass"],
+    LOF_inliers["radius"],
+    label="Normal points",
+    alpha=0.5,
+    zorder=2
+)
+scatter1 = ax.scatter(
+    LOF_outliers["mass"],
+    LOF_outliers["radius"],
+    label="Outliers",
+    zorder=3,
+    edgecolor="black"
+)
+ax.legend()
+ax.set_xscale("log")
+ax.set_yscale("log")
+ax.set_xlabel(r"Mass ($M_\oplus$)")
+ax.set_ylabel(r"Radius ($R_\oplus$)")
+ax.set_title("LOF Outlier Detection including uncertainties: Mass vs Radius")
+plt.tight_layout()
+plt.savefig("figures/LOF_outliers_incl_uncer.pdf", dpi=300)
 
 
 # ---------------------------
@@ -174,7 +223,7 @@ ax.set_xlabel(r"Mass ($M_\oplus$)")
 ax.set_ylabel(r"Radius ($R_\oplus$)")
 ax.set_title("LOF Outlier Detection excluding uncertainties: Mass vs Radius")
 plt.tight_layout()
-plt.savefig("Figures/LOF_outliers_excl_uncer_all.png", dpi=300)
+plt.savefig("figures/LOF_outliers_excl_uncer_all.pdf", dpi=300)
 
 
 
@@ -274,7 +323,7 @@ ax.set_xlabel(r"Mass ($M_\oplus$)")
 ax.set_ylabel(r"Radius ($R_\oplus$)")
 ax.set_title("LOF Outlier Detection including uncertainties: Mass vs Radius")
 plt.tight_layout()
-plt.savefig("Figures/LOF_outliers_incl_uncer_all.png", dpi=300)
+plt.savefig("figures/LOF_outliers_incl_uncer_all.pdf", dpi=300)
 
 
 # ---------------------------
@@ -329,7 +378,7 @@ ax.set_xlabel(r"Mass ($M_\oplus$)")
 ax.set_ylabel(r"Radius ($R_\oplus$)")
 ax.set_title("Otegi Outlier Selection: Mass vs Radius")
 plt.tight_layout()
-plt.savefig("Figures/Otegi_outliers.png", dpi=300)
+plt.savefig("Figures/Otegi_outliers.pdf", dpi=300)
 
 
 # ---------------------------
@@ -382,7 +431,7 @@ ax.set_xlabel(r"Mass ($M_\oplus$)")
 ax.set_ylabel(r"Radius ($R_\oplus$)")
 ax.set_title("Handpicked Outlier Detection excluding uncertainties: Mass vs Radius")
 plt.tight_layout()
-plt.savefig("Figures/Handpicked_outliers_excl_uncer.png", dpi=300)
+plt.savefig("figures/Handpicked_outliers_excl_uncer.pdf", dpi=300)
 
-plt.show()
+# plt.show()
 
