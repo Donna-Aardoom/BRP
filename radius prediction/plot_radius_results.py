@@ -159,49 +159,50 @@ plot_pred_true([
 # bem.plot_LIME_predictions(regr, dataset, train_test_sets, model_name="Random Forest")
 # plt.show()
 
-
-# # radius predictions three regimes 
+# # radius predictions using LightGBM in three regimes based on Otegi et al. 2020 
 # dataset_small = dataset[dataset["mass"] < 4.4]
 # dataset_intermediate = dataset[(dataset["mass"] >= 4.4) & (dataset["mass"] < 127)]
 # dataset_giant = dataset[dataset["mass"] >= 127]
 
 # print("Number of small planets: ", len(dataset_small))
-# regr_small, y_test_pred_small, train_test_values_small, train_test_sets_small = lgbm_xgb.lightgbm(
+# regr_small, y_test_pred_small, train_test_values_small, train_test_sets_small, lgbm_metrics_small = lgbm_xgb.lightgbm(
 #     dataset_small,  
 #     model = None,
 #     fit=True
 # )
 
 # print("Number of intermediate planets: ", len(dataset_intermediate))
-# regr_intermediate, y_test_pred_intermediate, train_test_values_intermediate, train_test_sets_intermediate = lgbm_xgb.lightgbm(
+# regr_intermediate, y_test_pred_intermediate, train_test_values_intermediate, train_test_sets_intermediate, lgbm_metrics_intermediate = lgbm_xgb.lightgbm(
 #     dataset_intermediate,
 #     model = None,
 #     fit=True
 # )
 
 # print("Number of giant planets: ", len(dataset_giant))
-# regr_giant, y_test_pred_giant, train_test_values_giant, train_test_sets_giant = lgbm_xgb.lightgbm(
+# regr_giant, y_test_pred_giant, train_test_values_giant, train_test_sets_giant, lgbm_metrics_giant = lgbm_xgb.lightgbm(
 #     dataset_giant,
 #     model = None,
 #     fit=True
 # )   
 
-# #mousavi mass predictions
+# # radius predictions using LightGBM in two regimes based on Mousavi et al. 2020
 # dataset_small_mousavi = dataset[dataset["mass"] < 52.48]
 # dataset_giants_mousavi = dataset[dataset["mass"] >= 52.48]
 
 # print("Number of small planets: ", len(dataset_small_mousavi))
-# regr_small_mousavi, y_test_pred_small_mousavi, train_test_values_small_mousavi, train_test_sets_small_mousavi = lgbm_xgb.lightgbm(
+# regr_small_mousavi, y_test_pred_small_mousavi, train_test_values_small_mousavi, train_test_sets_small_mousavi, lgbm_metrics_small = lgbm_xgb.lightgbm(
 #     dataset_small_mousavi,     
 #     model = None,
 #     fit=True
 # )   
 # print("Number of giant planets: ", len(dataset_giants_mousavi))
-# regr_giants_mousavi, y_test_pred_giants_mousavi, train_test_values_giants_mousavi, train_test_sets_giants_mousavi = lgbm_xgb.lightgbm(
+# regr_giants_mousavi, y_test_pred_giants_mousavi, train_test_values_giants_mousavi, train_test_sets_giants_mousavi, lgbm_metrics_giants = lgbm_xgb.lightgbm(
 #     dataset_giants_mousavi, 
 #     model = None,
 #     fit=True
 # )
+
+# plt.show()
 
 
 
