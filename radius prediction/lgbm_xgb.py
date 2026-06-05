@@ -35,13 +35,56 @@ def split_data(dataset):
         features,
         label,
         test_size=0.25,
-        random_state=23
+        random_state=9
     )
-    forced_for_train = ["Mercury", "Venus", "Earth", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune",
+
+    forced_for_train = [
+    # "eps Ind Bb",
+    # "Gaia-2 b",
+    # "HD 110113 b",
+    # "HD 35843 c",
+    # "HIP 67522 b",
+    # "K2-309 Ab",
+    # "K2-309 Ad",
+    # "K2-309 Ae",
+    # "Lupus-TR-3 b",
+    # "TOI-1248 Ab",
+    # "TOI-1260 b",
+    # "TOI-1410 Ab",
+    # "TOI-1439 b",
+    # "TOI-1451 b",
+    # "TOI-1648 b",
+    # "TOI-1742 b",
+    # "TOI-1775 b",
+    # "TOI-1798 c",
+    # "TOI-1801 Ab",
+    # "TOI-1823 b",
+    # "TOI-2134 b",
+    # "TOI-2134 c",
+    # "TOI-2427 b",
+    # "TOI-263 b",
+    # "TOI-3755 b",
+    # "TOI-406 c",
+    # "TOI-519 b",
+    # "TOI-544 b",
+    # "TOI-5882 b",
+    # "TOI-654 b",
+    # "TOI-837 Ab",
+    # "WASP-186 b",
+    # "WASP-187 b",
+    # "WASP-23 b",
+    # "WASP-85 Ab",
+    "Mercury", "Venus", "Earth", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune",
     'Kepler-12 b', 'WASP-94 Ab', 'HAT-P-47 b',
     'kappa And b', 'HD 984 b', 'Kepler-16 (AB)b', 'Kepler-34 (AB)b', 'KELT-9 Ab'
     ]
-    forced_for_test = [
+    forced_for_test = [ 
+        # "TOI-561 b",
+        #     "HATS-35 b",
+        #     "CoRoT-13 b",
+        #     "Kepler-75 b",
+        #     "WASP-17 b",
+        #     "Kepler-20 Ac",
     'HAT-P-32 Ab', 'TOI-3071 b', 'WASP-122 Ab', 'TOI-3976 Ab', 'Kepler-4 b',
     'LHS 1140 b', 'Gliese 12 b', 'TOI-1231 b',
     'TOI-201 c', 'TOI-561 f', 'HIP 41378 f',
@@ -116,19 +159,21 @@ def lightgbm(dataset, model=None, fit=False):
         }
         # use randomized search to find the best hyperparameters for the LightGBM regressor
         lgbm_cv = RandomizedSearchCV(
-            LGBMRegressor(verbose=-1, random_state=42),
+            LGBMRegressor(verbose=-1, random_state=9),
             param_distributions=params_grid,
             n_iter=80,
             scoring='neg_root_mean_squared_error',
             cv=3,
             verbose=1,
             n_jobs=-1,
-            random_state=23,
+            random_state=9,
         )
         
         # fit the model to the training data and print the best hyperparameters
         lgbm_cv.fit(X_train, y_train)
-        print("\nBest params:", lgbm_cv.best_params_)
+        print("\nBest params LightGBM:")
+        for param, value in lgbm_cv.best_params_.items():
+            print(f"{param}: {value}")
 
         # train the LightGBM regressor with the best hyperparameters
         lgbm = lgbm_cv.best_estimator_
@@ -164,19 +209,22 @@ def lightgbm(dataset, model=None, fit=False):
     print(f"Test  R²:   {r2_score(y_test,  y_test_predict):.4f}")
     print(f"Train RMSE: {root_mean_squared_error(y_train, y_train_predict):.4f}")
     print(f"Test  RMSE: {root_mean_squared_error(y_test,  y_test_predict):.4f}")
+    print(f"Mean ratio: {np.mean(y_test_predict / y_test):.4f}")
 
     print('\nFeature importance')
-    for name, value in zip(features_needed, lgbm.feature_importances_):
-        print(name, ':\t', value)
+    importances = lgbm.feature_importances_
+    importances_percent = 100 * importances / importances.sum()
+
+    for name, value in zip(features_needed, importances_percent):
+        print(f'{name}: {value:.2f}%')
         
-    ratio = y_test_predict / y_test
-    mean_ratio = np.mean(ratio)
+    
     metrics = {
         "r2_test": r2_score(y_test, y_test_predict),
         "r2_train": r2_score(y_train, y_train_predict),
         "rmse_train": root_mean_squared_error(y_train, y_train_predict),
         "rmse_test": root_mean_squared_error(y_test, y_test_predict),
-        "mean_ratio": mean_ratio}
+        "mean_ratio": np.mean(y_test_predict / y_test)}
 
     return lgbm, y_test_predict, train_test_values, train_test_sets, metrics
 
@@ -216,13 +264,15 @@ def xgboost(dataset, model=None, fit=False):
             scoring="r2",
             verbose=1,
             n_jobs=-1,
-            random_state=23,
+            random_state=9,
             return_train_score=True
         )
 
         # fit the model to the training data and print the best hyperparameters
         xgb_cv.fit(X_train, y_train)
-        print("\nBest params:", xgb_cv.best_params_)
+        print("\nBest params XGBoost:")
+        for param, value in xgb_cv.best_params_.items():
+            print(f"{param}: {value}")
 
         # train the XGBoost regressor with the best hyperparameters
         xgb = xgb_cv.best_estimator_
@@ -258,18 +308,19 @@ def xgboost(dataset, model=None, fit=False):
     print(f"Test  R²:   {r2_score(y_test,  y_test_predict):.4f}")
     print(f"Train RMSE: {root_mean_squared_error(y_train, y_train_predict):.4f}")
     print(f"Test  RMSE: {root_mean_squared_error(y_test,  y_test_predict):.4f}")
+    print(f"Mean ratio: {np.mean(y_test_predict / y_test):.4f}")
 
     print('\nFeature importance')
-    for name, value in zip(features_needed, xgb.feature_importances_):
-        print(name, ':\t', value)
+    importances = xgb.feature_importances_
+    importances_percent = 100 * importances / importances.sum()
 
-    ratio = y_test_predict / y_test
-    mean_ratio = np.mean(ratio)
+    for name, value in zip(features_needed, importances_percent):
+        print(f'{name}: {value:.2f}%')  
 
     metrics = {"r2_test": r2_score(y_test, y_test_predict),
     "r2_train": r2_score(y_train, y_train_predict),
     "rmse_train": root_mean_squared_error(y_train, y_train_predict),
     "rmse_test": root_mean_squared_error(y_test, y_test_predict),
-    "mean_ratio": mean_ratio}
+    "mean_ratio": np.mean(y_test_predict / y_test)}
 
     return xgb, y_test_predict, train_test_values, train_test_sets, metrics

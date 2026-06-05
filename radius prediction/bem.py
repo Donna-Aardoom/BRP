@@ -7,13 +7,11 @@ from sklearn.model_selection import validation_curve
 from sklearn.ensemble import RandomForestRegressor 
 from sklearn.metrics import r2_score
 from scipy.stats import multivariate_normal as mvn
-from scipy.stats import pearsonr
 import pandas as pd
 import datetime
 import os
 import joblib
 import format_dataset as fd
-from pprint import pprint
 import matplotlib.pyplot as plt
 from matplotlib import cm 
 import lime
@@ -138,7 +136,7 @@ def load_dataset_errors(cat_exoplanet='data/exoplanet.eu_catalog_20-01-26_15_03_
                                'star_teff',
                                'star_teff_error_min', 'star_teff_error_max', 
                                # a mistake! but it corresponds with our results;
-                            #    'star_metallicity'
+                               'star_metallicity'
                                ]]
 
     dataset_solar_system = pd.read_csv(cat_solar, index_col=0)
@@ -244,9 +242,177 @@ def load_dataset_errors(cat_exoplanet='data/exoplanet.eu_catalog_20-01-26_15_03_
 
         dataset_exo = dataset_exo.loc[~bad_mask]
 
-        print("\nRemoved planets:")
-        for planet in removed_planets:
-            print(planet)
+
+    # Add the solar system planets with the exoplanets
+    if solar:
+        dataset = pd.concat([dataset_exo, dataset_solar_system])
+    else:
+        dataset = dataset_exo
+
+    # Add observables
+    dataset = fd.add_temp_eq_error_dataset(dataset)
+    dataset = fd.add_star_luminosity_error_dataset(dataset)
+
+
+    # Select the same features as the original dataset
+    dataset = dataset[['mass',              'mass_error',
+                       'star_luminosity',   'star_luminosity_error',
+                       'temp_eq',           'temp_eq_error',
+                       'semi_major_axis',   'semi_major_axis_error',
+                       'star_mass',         'star_mass_error',
+                       'star_radius',       'star_radius_error',
+                       'star_teff',         'star_teff_error',
+                       'radius',            'radius_error']]
+
+    print("\nNumber of planets loaded including error columns: ", len(dataset))
+
+    return dataset    
+    
+def load_dataset_errors_met(cat_exoplanet='data/exoplanet.eu_catalog_20-01-26_15_03_11.csv',
+                        cat_solar="data/solar_system_planets_catalog.csv",
+                        remove_bad_planets=True,
+                        solar=True):
+    """
+    Select exoplanet in the catalogue which have uncertainty measurements as 
+    well as stellar parameters. If there is no uncertainty measurement, the 
+    uncertainty is set to the 0.9 quantile of the distribution of uncertainties.
+    
+    If the uncertainty is higher then the value, the planet will be removed.
+    
+    This dataset will be used to compute error bars for the test set.
+    
+    Input:
+    cat_exoplanet = CSV file from exoplanet.eu
+    cat_solar = CSV file from planetary sheet.
+    
+    Returns:
+    dataset_exo = pandas dataframe with exoplanets with mass & radius measurements
+                  the mass/radius are in Earth mass/radius.
+    """
+
+    # Importing exoplanet dataset
+    dataset_exo = pd.read_csv(cat_exoplanet, index_col=0)
+
+    dataset_exo = dataset_exo[['mass', 
+                               'mass_error_min', 'mass_error_max',
+                               'radius', 
+                               'radius_error_min', 'radius_error_max',
+                               'semi_major_axis', 
+                               'semi_major_axis_error_min', 'semi_major_axis_error_max',
+                               'eccentricity', 
+                               'eccentricity_error_min', 'eccentricity_error_max',
+                               'star_mass', 
+                               'star_mass_error_min', 'star_mass_error_max',
+                               'star_radius', 
+                               'star_radius_error_min','star_radius_error_max',
+                               'star_teff',
+                               'star_teff_error_min', 'star_teff_error_max', 
+                               # a mistake! but it corresponds with our results;
+                               'star_metallicity'
+                               ]]
+
+    dataset_solar_system = pd.read_csv(cat_solar, index_col=0)
+    
+
+    dataset_solar_system = dataset_solar_system[['mass',            'mass_error', 
+                                                 'semi_major_axis', 'semi_major_axis_error', 
+                                                 'eccentricity',    'eccentricity_error',
+                                                 'star_mass',       'star_mass_error',
+                                                 'star_radius',     'star_radius_error',
+                                                 'star_teff',       'star_teff_error', 
+                                                 'radius',          'radius_error']]
+    
+    print("\nLoading exoplanet dataset with uncertainties:")
+
+    #Remove NaN's in features only
+    dataset_exo = dataset_exo.dropna(subset=['mass',
+                                            'semi_major_axis',
+                                            'eccentricity',
+                                            'star_radius',
+                                            'star_mass',
+                                            'star_teff',
+                                            'radius', 
+                                            # a mistake! but it corresponds with our results;
+                                            'star_metallicity'
+                                            ]
+                                            )
+
+    dataset_solar_system = dataset_solar_system.dropna(subset=['mass',
+                                                               'semi_major_axis',
+                                                               'eccentricity',
+                                                               'star_radius',
+                                                               'star_mass',
+                                                               'star_teff',
+                                                               'radius'])
+    
+    
+
+    # Replace inf by NaN
+    dataset_exo = dataset_exo.replace([np.inf, -np.inf], np.nan)
+
+    # Replace NaN values in the error features by the 0.9 quantile value
+    error_columns = ['mass_error_min', 'mass_error_max',
+                     'radius_error_min', 'radius_error_max',
+                     'semi_major_axis_error_min', 'semi_major_axis_error_max',
+                     'eccentricity_error_min', 'eccentricity_error_max',
+                     'star_mass_error_min', 'star_mass_error_max',
+                     'star_radius_error_min', 'star_radius_error_max',
+                     'star_teff_error_min', 'star_teff_error_max']
+
+    for error_col in error_columns:
+        # Find the 0.9 quantile value of the error column
+        max_error = dataset_exo[error_col].quantile(0.9)
+        print(error_col, max_error)
+
+        # Replace NaN by the 0.9 error value
+        dataset_exo[error_col] = dataset_exo[error_col].replace(np.nan, max_error)
+
+    # After filling error NaNs, drop rows missing any core feature
+    core_features = ['mass', 'semi_major_axis', 'eccentricity', 
+                 'star_mass', 'star_radius', 'star_teff', 'radius']
+    dataset_exo = dataset_exo.dropna(subset=core_features)
+
+    # Convert from Jupiter to Earth
+    print("Converting planets mass/radius to Earth masses/radii")
+    dataset_exo = fd.jupiter_to_earth_mass(dataset_exo, 'mass')
+    dataset_exo = fd.jupiter_to_earth_mass(dataset_exo, 'mass_error_max')
+    dataset_exo = fd.jupiter_to_earth_mass(dataset_exo, 'mass_error_min')
+    dataset_exo = fd.jupiter_to_earth_radius(dataset_exo, 'radius')
+    dataset_exo = fd.jupiter_to_earth_radius(dataset_exo, 'radius_error_max')
+    dataset_exo = fd.jupiter_to_earth_radius(dataset_exo, 'radius_error_min')
+
+    # Computes the average error column
+    dataset_exo['mass_error'] = dataset_exo[['mass_error_min', 'mass_error_max']].mean(axis=1).abs()
+    dataset_exo['radius_error'] = dataset_exo[['radius_error_min', 'radius_error_max']].mean(axis=1).abs()
+    dataset_exo['semi_major_axis_error'] = dataset_exo[['semi_major_axis_error_min', 'semi_major_axis_error_max']].mean(axis=1).abs()
+    dataset_exo['eccentricity_error'] = dataset_exo[['eccentricity_error_min', 'eccentricity_error_max']].mean(axis=1).abs()
+    dataset_exo['star_mass_error'] = dataset_exo[['star_mass_error_min', 'star_mass_error_max']].mean(axis=1).abs()
+    dataset_exo['star_radius_error'] = dataset_exo[['star_radius_error_min', 'star_radius_error_max']].mean(axis=1).abs()
+    dataset_exo['star_teff_error'] = dataset_exo[['star_teff_error_min', 'star_teff_error_max']].mean(axis=1).abs()
+
+    dataset_exo = dataset_exo[['mass',              'mass_error',
+                               'semi_major_axis',   'semi_major_axis_error',
+                               'eccentricity',      'eccentricity_error',
+                               'star_mass',         'star_mass_error',
+                               'star_radius',       'star_radius_error',
+                               'star_teff',         'star_teff_error',
+                               'radius',            'radius_error']]
+    
+    if remove_bad_planets:
+        bad_mask = (
+            (dataset_exo['mass_error'] >= dataset_exo['mass']) |
+            (dataset_exo['radius_error'] >= dataset_exo['radius']) |
+            (dataset_exo['semi_major_axis_error'] >= dataset_exo['semi_major_axis']) |
+            (dataset_exo['star_mass_error'] >= dataset_exo['star_mass']) |
+            (dataset_exo['star_radius_error'] >= dataset_exo['star_radius']) |
+            (dataset_exo['star_teff_error'] >= dataset_exo['star_teff'])
+        )
+
+        removed_planets = dataset_exo.index[bad_mask]
+
+        print("Removing", len(removed_planets), "planets with uncertainty >= value")
+
+        dataset_exo = dataset_exo.loc[~bad_mask]
 
     # Add the solar system planets with the exoplanets
     if solar:
@@ -384,9 +550,45 @@ def split_data(dataset):
         features,
         label,
         test_size=0.25,
-        random_state=23
+        random_state=9
     )
-    forced_for_train = ["Mercury", "Venus", "Earth", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune",
+    forced_for_train = [
+    # "eps Ind Bb",
+    # "Gaia-2 b",
+    # "HD 110113 b",
+    # "HD 35843 c",
+    # "HIP 67522 b",
+    # "K2-309 Ab",
+    # "K2-309 Ad",
+    # "K2-309 Ae",
+    # "Lupus-TR-3 b",
+    # "TOI-1248 Ab",
+    # "TOI-1260 b",
+    # "TOI-1410 Ab",
+    # "TOI-1439 b",
+    # "TOI-1451 b",
+    # "TOI-1648 b",
+    # "TOI-1742 b",
+    # "TOI-1775 b",
+    # "TOI-1798 c",
+    # "TOI-1801 Ab",
+    # "TOI-1823 b",
+    # "TOI-2134 b",
+    # "TOI-2134 c",
+    # "TOI-2427 b",
+    # "TOI-263 b",
+    # "TOI-3755 b",
+    # "TOI-406 c",
+    # "TOI-519 b",
+    # "TOI-544 b",
+    # "TOI-5882 b",
+    # "TOI-654 b",
+    # "TOI-837 Ab",
+    # "WASP-186 b",
+    # "WASP-187 b",
+    # "WASP-23 b",
+    # "WASP-85 Ab",
+    "Mercury", "Venus", "Earth", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune",
     'Kepler-12 b', 'WASP-94 Ab', 'HAT-P-47 b',
     'kappa And b', 'HD 984 b', 'Kepler-16 (AB)b', 'Kepler-34 (AB)b', 'KELT-9 Ab'
     ]
@@ -437,10 +639,11 @@ def split_data(dataset):
         y_test.values
     ]
     train_test_sets = [X_train, X_test, y_train, y_test]
-    return X_train, X_test, y_train, y_test, train_test_values, train_test_sets
+    return features_needed, X_train, X_test, y_train, y_test, train_test_values, train_test_sets
 
 
-def random_forest_regression(dataset, model=saved_pickle_model, fit=False):
+def random_forest_regression(dataset,
+                             model=saved_pickle_model, fit=False):
     """
     Random Forest regressor
 
@@ -448,7 +651,7 @@ def random_forest_regression(dataset, model=saved_pickle_model, fit=False):
         regr, y_test_predict, train_test_values, train_test_sets
     """
     # Load the dataset and split into train/test sets
-    X_train, X_test, y_train, y_test, train_test_values, train_test_sets = split_data(dataset)
+    features_needed, X_train, X_test, y_train, y_test, train_test_values, train_test_sets = split_data(dataset)
 
     print('Dataset loaded and split into train/test sets. Starting Random Forest regression...')
 
@@ -481,19 +684,21 @@ def random_forest_regression(dataset, model=saved_pickle_model, fit=False):
         ]
 
         rf_cv = RandomizedSearchCV(
-            RandomForestRegressor(random_state=23),
+            RandomForestRegressor(random_state=9),
             param_distributions=params_grid_rf,
             n_iter=40,
             cv=5,
             scoring='r2',
             verbose=1,
             n_jobs=-1,
-            random_state=23,
+            random_state=9,
             return_train_score=True
         )
 
         rf_cv.fit(X_train, y_train)
-        print("Best params:", rf_cv.best_params_)
+        print("\nBest params Random Forest:")
+        for param, value in rf_cv.best_params_.items():
+            print(f"{param}: {value}")
 
         regr = rf_cv.best_estimator_
 
@@ -504,41 +709,57 @@ def random_forest_regression(dataset, model=saved_pickle_model, fit=False):
         name_rf = 'rf_r2_' + str(round(rf_cv.best_score_, 2)) + '_' + str(datetime.datetime.now().strftime("%Y-%m-%d_%H")) + '.pkl'
         name_rf = os.path.join(outdir, name_rf)
 
-        print('Random Forest model will be saved in:', name_rf)
+        print('\nRandom Forest model will be saved in:', name_rf)
 
-        print("Training Random Forest regressor...")
+        print("\nTraining Random Forest regressor...")
         regr.fit(X_train, y_train)
         joblib.dump(regr, name_rf)
 
     else:
-        print("Loading Random Forest model:", model)
+        print("\nLoading Random Forest model:", model)
         regr = joblib.load(model)
 
     # Predict the radius for the train and test sets
     y_train_predict = regr.predict(X_train)
     y_test_predict = regr.predict(X_test)
 
-    # Evaluate the model's performance on the test set
-    print("Evaluation of Random Forest regressor:")
-    train_score = r2_score(y_train, y_train_predict)
-    test_score = r2_score(y_test, y_test_predict)
-    r2_sklearn = regr.score(X_test, y_test)
-    print('R-2 score sklearn:', r2_sklearn)
-    print(f'Train set, R-2 score: {train_score:>5.3}')
-    print(f'Test set, R-2 score: {test_score:>5.3}')
-    print('Root mean squared errors')
-    print('Train set: ', np.sqrt(np.mean((y_train - y_train_predict) ** 2)),
-          '\nTest set:  ', np.sqrt(np.mean((y_test - y_test_predict) ** 2)))
-    
-    ratio = y_test_predict / y_test
-    mean_ratio = np.mean(ratio)
+    #feature importance 
+    print('\nFeature importance')
+    importances = regr.feature_importances_
+    importances_percent = 100 * importances / importances.sum()
+
+    for name, value in zip(features_needed, importances_percent):
+        print(f'{name}: {value:.2f}%')
+
+    # Evaluate
+    print("\nEvaluation of Random Forest regressor:")
+    print(f"Train R²:   {r2_score(y_train, y_train_predict):.4f}")
+    print(f"Test  R²:   {r2_score(y_test,  y_test_predict):.4f}")
+    print(f"Train RMSE: {root_mean_squared_error(y_train, y_train_predict):.4f}")
+    print(f"Test  RMSE: {root_mean_squared_error(y_test,  y_test_predict):.4f}")
+    print(f"Mean ratio: {np.mean(y_test_predict / y_test):.4f}")
+
+    print('\nFeature importance')
+    importances = regr.feature_importances_
+    importances_percent = 100 * importances / importances.sum()
+
+    for name, value in zip(features_needed, importances_percent):
+        print(f'{name}: {value:.2f}%')  
+
+    metrics = {"r2_test": r2_score(y_test, y_test_predict),
+    "r2_train": r2_score(y_train, y_train_predict),
+    "rmse_train": root_mean_squared_error(y_train, y_train_predict),
+    "rmse_test": root_mean_squared_error(y_test, y_test_predict),
+    "mean_ratio": np.mean(y_test_predict / y_test)}
+
     metrics = {
         "r2_test": r2_score(y_test, y_test_predict),
         "r2_train": r2_score(y_train, y_train_predict),
         "rmse_train": np.sqrt(np.mean((y_train - y_train_predict) ** 2)),
         "rmse_test": np.sqrt(np.mean((y_test - y_test_predict) ** 2)),
-        "mean_ratio": mean_ratio}
-    
+        "mean_ratio": np.mean(y_test_predict / y_test)
+    }
+
     return regr, y_test_predict, train_test_values, train_test_sets, metrics
 
 
@@ -806,7 +1027,7 @@ def plot_learning_curve(regr, dataset, save=False, fit=False):
         os.mkdir(outdir)
 
     if fit:
-        cv = ShuffleSplit(n_splits=100, test_size=0.1, random_state=23)
+        cv = ShuffleSplit(n_splits=100, test_size=0.1, random_state=9)
         train_sizes, train_scores, test_scores= learning_curve(regr, 
                                                                 X = features,
                                                                 y = label,
@@ -1232,10 +1453,14 @@ def plot_LIME_predictions(regr, dataset, train_test_sets,
                 'Kepler-20 Ac'
             ]
 
-        for name in default_names: 
-            matches = np.where(X_test.index == name)[0] 
-            if len(matches) > 0: 
-                planets.append(matches[0]) 
+        for name in default_names:
+            matches = np.where(X_test.index == name)[0]
+            if len(matches) > 0:
+                planets.append(matches[0])
+
+        if len(planets) == 0:
+            print("None of the default LIME planets are in the test set.")
+            planets = list(range(min(6, len(X_test))))
     else: 
 
         pass

@@ -5,14 +5,53 @@ import bem
 import lgbm_xgb 
 import numpy as np
 time1 = time.time()
+import sys
 
 
 dataset_all = "data/exoplanet.eu_catalog_20-01-26_15_03_11.csv"
 cat_solar = 'data/solar_system_planets_catalog.csv'
 
-dataset = bem.load_dataset()
+# dataset = bem.load_dataset()
 
 dataset = bem.load_dataset_errors(remove_bad_planets=True)
+# # otegi threshold data selection
+# selection_uncertainty = (
+#     (dataset['mass_error'] / dataset['mass'] < 0.25) &
+#     (dataset['radius_error'] / dataset['radius'] < 0.08)
+# )
+# print("Number of removed planets due to Otegi uncertainty selection: ", len(dataset[~selection_uncertainty])  )
+# dataset = dataset[selection_uncertainty]
+
+# # Remove manually excluded planet
+# planets_to_remove = ["K2-123 b"]
+# dataset = dataset.drop(index=planets_to_remove, errors="ignore")
+# bem.plot_dataset(dataset)
+
+
+
+# dataset_met = bem.load_dataset_errors_met(remove_bad_planets=True)
+# # otegi threshold data selection
+# selection_uncertainty = (
+#     (dataset_met['mass_error'] / dataset_met['mass'] < 0.25) &
+#     (dataset_met['radius_error'] / dataset_met['radius'] < 0.08)
+# )
+# print("Number of removed planets due to Otegi uncertainty selection: ", len(dataset_met[~selection_uncertainty])  )
+# dataset_met = dataset_met[selection_uncertainty]
+
+# # Remove manually excluded planet
+# planets_to_remove = ["K2-123 b"]
+# dataset_met = dataset_met.drop(index=planets_to_remove, errors="ignore")
+
+# # show just the planets that are not in the dataset met but are in the dataset, to see if they are outliers or not.
+# dataset_diff = dataset[~dataset.index.isin(dataset_met.index)]
+# bem.plot_dataset(dataset_diff) 
+
+# print(dataset_diff[0])
+# plt.show()
+
+#run for all the random states from 0 to 42 and plot only the best one
+
+
 
 
 # otegi threshold data selection
@@ -29,12 +68,14 @@ dataset = dataset.drop(index=planets_to_remove, errors="ignore")
 
 print("Number of planets after cleaning: ", len(dataset) )
 
-# radius predictions full dataset
+
+# radius predictions full dataset on all three models
 regr_lgbm, y_test_pred_lgbm, train_test_values_lgbm, train_test_sets_lgbm, lgbm_metrics = lgbm_xgb.lightgbm(
     dataset,  
     model = None,
     fit=True
 )
+
 regr_xgb, y_test_pred_xgb, train_test_values_xgb, train_test_sets_xgb, xgb_metrics = lgbm_xgb.xgboost(
     dataset,
     model = None,
@@ -46,7 +87,7 @@ regr, y_test_pred, train_test_values, train_test_sets, rf_metrics = random_fores
     fit=True
 )
 
-from sklearn.metrics import r2_score, root_mean_squared_error
+
 
 def plot_pred_true(models, log_scale=False, relative_residuals=False):
     """
@@ -145,7 +186,7 @@ def plot_pred_true(models, log_scale=False, relative_residuals=False):
 
     plt.tight_layout()
     plt.savefig("Figures/Residuals_radius.pdf", bbox_inches="tight")
-    plt.show()
+    # plt.show()
 
 plot_pred_true([
     ("Random Forest", train_test_sets, y_test_pred, rf_metrics),
@@ -158,6 +199,7 @@ plot_pred_true([
 # bem.plot_LIME_predictions(regr_xgb, dataset, train_test_sets_xgb, model_name="XGBoost")
 # bem.plot_LIME_predictions(regr, dataset, train_test_sets, model_name="Random Forest")
 # plt.show()
+
 
 # # radius predictions using LightGBM in three regimes based on Otegi et al. 2020 
 # dataset_small = dataset[dataset["mass"] < 4.4]
@@ -202,8 +244,6 @@ plot_pred_true([
 #     fit=True
 # )
 
-# plt.show()
 
 
-
-
+plt.show()
