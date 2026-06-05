@@ -6,6 +6,7 @@ from sklearn.model_selection import learning_curve
 from sklearn.model_selection import validation_curve
 from sklearn.ensemble import RandomForestRegressor 
 from sklearn.metrics import r2_score
+from sklearn.metrics import root_mean_squared_error
 from scipy.stats import multivariate_normal as mvn
 import pandas as pd
 import datetime
@@ -746,19 +747,14 @@ def random_forest_regression(dataset,
     for name, value in zip(features_needed, importances_percent):
         print(f'{name}: {value:.2f}%')  
 
-    metrics = {"r2_test": r2_score(y_test, y_test_predict),
+    metrics = {
+    "r2_test": r2_score(y_test, y_test_predict),
     "r2_train": r2_score(y_train, y_train_predict),
     "rmse_train": root_mean_squared_error(y_train, y_train_predict),
     "rmse_test": root_mean_squared_error(y_test, y_test_predict),
     "mean_ratio": np.mean(y_test_predict / y_test)}
 
-    metrics = {
-        "r2_test": r2_score(y_test, y_test_predict),
-        "r2_train": r2_score(y_train, y_train_predict),
-        "rmse_train": np.sqrt(np.mean((y_train - y_train_predict) ** 2)),
-        "rmse_test": np.sqrt(np.mean((y_test - y_test_predict) ** 2)),
-        "mean_ratio": np.mean(y_test_predict / y_test)
-    }
+    
 
     return regr, y_test_predict, train_test_values, train_test_sets, metrics
 
