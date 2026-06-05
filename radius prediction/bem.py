@@ -5,8 +5,7 @@ from sklearn.model_selection import ShuffleSplit
 from sklearn.model_selection import learning_curve
 from sklearn.model_selection import validation_curve
 from sklearn.ensemble import RandomForestRegressor 
-from sklearn.metrics import r2_score
-from sklearn.metrics import root_mean_squared_error
+from sklearn.metrics import r2_score, root_mean_squared_error
 from scipy.stats import multivariate_normal as mvn
 import pandas as pd
 import datetime
@@ -30,7 +29,6 @@ def load_dataset(cat_exoplanet='data/exoplanet.eu_catalog_20-01-26_15_03_11.csv'
                                'star_radius', 
                                'star_teff',
                                'star_mass',
-                               'star_metallicity',
                                'radius'],
                 solar=True):
     """
@@ -56,7 +54,7 @@ def load_dataset(cat_exoplanet='data/exoplanet.eu_catalog_20-01-26_15_03_11.csv'
     
     # Choosing features/data
     if not feature_names:
-        print("No features selected, loading default features")
+        print("\nNo features selected, loading default features")
     else: 
         dataset_exo = dataset_exo[feature_names]
         dataset_solar_system = dataset_solar_system[feature_names]
@@ -65,7 +63,7 @@ def load_dataset(cat_exoplanet='data/exoplanet.eu_catalog_20-01-26_15_03_11.csv'
     dataset_exo = dataset_exo.dropna(axis=0, how='any')
 
     # Converting from Jupiter to Earth mass/radius
-    print("Convert planets mass/radius from Jupiter to Earth.")
+    print("\nConvert planets mass/radius from Jupiter to Earth.")
     dataset_exo = fd.jupiter_to_earth_mass(dataset_exo, 'mass')
     dataset_exo = fd.jupiter_to_earth_radius(dataset_exo, 'radius')
 
@@ -80,9 +78,7 @@ def load_dataset(cat_exoplanet='data/exoplanet.eu_catalog_20-01-26_15_03_11.csv'
     dataset = fd.add_temp_eq_dataset(dataset)
     dataset = fd.add_star_luminosity_dataset(dataset)
 
-    # Number of planets in dataset
-    print('\nNumber of planets loaded: ', len(dataset))
-
+    
     # Returning the dataset with selected features
     select_features = ['mass',
                        'semi_major_axis',
@@ -93,6 +89,9 @@ def load_dataset(cat_exoplanet='data/exoplanet.eu_catalog_20-01-26_15_03_11.csv'
                        'radius']
 
     dataset = dataset[select_features]
+    # Number of planets in dataset
+    print('\nNumber of planets loaded: ', len(dataset))
+
 
     return dataset
 
@@ -135,9 +134,7 @@ def load_dataset_errors(cat_exoplanet='data/exoplanet.eu_catalog_20-01-26_15_03_
                                'star_radius', 
                                'star_radius_error_min','star_radius_error_max',
                                'star_teff',
-                               'star_teff_error_min', 'star_teff_error_max', 
-                               # a mistake! but it corresponds with our results;
-                               'star_metallicity'
+                               'star_teff_error_min', 'star_teff_error_max'
                                ]]
 
     dataset_solar_system = pd.read_csv(cat_solar, index_col=0)
@@ -151,7 +148,7 @@ def load_dataset_errors(cat_exoplanet='data/exoplanet.eu_catalog_20-01-26_15_03_
                                                  'star_teff',       'star_teff_error', 
                                                  'radius',          'radius_error']]
     
-    print("\nLoading exoplanet dataset with uncertainties:")
+    print("\nLoading exoplanet dataset with uncertainties")
 
     #Remove NaN's in features only
     dataset_exo = dataset_exo.dropna(subset=['mass',
@@ -160,11 +157,7 @@ def load_dataset_errors(cat_exoplanet='data/exoplanet.eu_catalog_20-01-26_15_03_
                                             'star_radius',
                                             'star_mass',
                                             'star_teff',
-                                            'radius', 
-                                            # a mistake! but it corresponds with our results;
-                                            # 'star_metallicity'
-                                            ]
-                                            )
+                                            'radius'])
 
     dataset_solar_system = dataset_solar_system.dropna(subset=['mass',
                                                                'semi_major_axis',
@@ -191,7 +184,7 @@ def load_dataset_errors(cat_exoplanet='data/exoplanet.eu_catalog_20-01-26_15_03_
     for error_col in error_columns:
         # Find the 0.9 quantile value of the error column
         max_error = dataset_exo[error_col].quantile(0.9)
-        print(error_col, max_error)
+        
 
         # Replace NaN by the 0.9 error value
         dataset_exo[error_col] = dataset_exo[error_col].replace(np.nan, max_error)
@@ -239,7 +232,7 @@ def load_dataset_errors(cat_exoplanet='data/exoplanet.eu_catalog_20-01-26_15_03_
 
         removed_planets = dataset_exo.index[bad_mask]
 
-        print("Removing", len(removed_planets), "planets with uncertainty >= value")
+        print("\nRemoving", len(removed_planets), "planets with uncertainty >= value")
 
         dataset_exo = dataset_exo.loc[~bad_mask]
 
@@ -268,178 +261,7 @@ def load_dataset_errors(cat_exoplanet='data/exoplanet.eu_catalog_20-01-26_15_03_
     print("\nNumber of planets loaded including error columns: ", len(dataset))
 
     return dataset    
-    
-def load_dataset_errors_met(cat_exoplanet='data/exoplanet.eu_catalog_20-01-26_15_03_11.csv',
-                        cat_solar="data/solar_system_planets_catalog.csv",
-                        remove_bad_planets=True,
-                        solar=True):
-    """
-    Select exoplanet in the catalogue which have uncertainty measurements as 
-    well as stellar parameters. If there is no uncertainty measurement, the 
-    uncertainty is set to the 0.9 quantile of the distribution of uncertainties.
-    
-    If the uncertainty is higher then the value, the planet will be removed.
-    
-    This dataset will be used to compute error bars for the test set.
-    
-    Input:
-    cat_exoplanet = CSV file from exoplanet.eu
-    cat_solar = CSV file from planetary sheet.
-    
-    Returns:
-    dataset_exo = pandas dataframe with exoplanets with mass & radius measurements
-                  the mass/radius are in Earth mass/radius.
-    """
-
-    # Importing exoplanet dataset
-    dataset_exo = pd.read_csv(cat_exoplanet, index_col=0)
-
-    dataset_exo = dataset_exo[['mass', 
-                               'mass_error_min', 'mass_error_max',
-                               'radius', 
-                               'radius_error_min', 'radius_error_max',
-                               'semi_major_axis', 
-                               'semi_major_axis_error_min', 'semi_major_axis_error_max',
-                               'eccentricity', 
-                               'eccentricity_error_min', 'eccentricity_error_max',
-                               'star_mass', 
-                               'star_mass_error_min', 'star_mass_error_max',
-                               'star_radius', 
-                               'star_radius_error_min','star_radius_error_max',
-                               'star_teff',
-                               'star_teff_error_min', 'star_teff_error_max', 
-                               # a mistake! but it corresponds with our results;
-                               'star_metallicity'
-                               ]]
-
-    dataset_solar_system = pd.read_csv(cat_solar, index_col=0)
-    
-
-    dataset_solar_system = dataset_solar_system[['mass',            'mass_error', 
-                                                 'semi_major_axis', 'semi_major_axis_error', 
-                                                 'eccentricity',    'eccentricity_error',
-                                                 'star_mass',       'star_mass_error',
-                                                 'star_radius',     'star_radius_error',
-                                                 'star_teff',       'star_teff_error', 
-                                                 'radius',          'radius_error']]
-    
-    print("\nLoading exoplanet dataset with uncertainties:")
-
-    #Remove NaN's in features only
-    dataset_exo = dataset_exo.dropna(subset=['mass',
-                                            'semi_major_axis',
-                                            'eccentricity',
-                                            'star_radius',
-                                            'star_mass',
-                                            'star_teff',
-                                            'radius', 
-                                            # a mistake! but it corresponds with our results;
-                                            'star_metallicity'
-                                            ]
-                                            )
-
-    dataset_solar_system = dataset_solar_system.dropna(subset=['mass',
-                                                               'semi_major_axis',
-                                                               'eccentricity',
-                                                               'star_radius',
-                                                               'star_mass',
-                                                               'star_teff',
-                                                               'radius'])
-    
-    
-
-    # Replace inf by NaN
-    dataset_exo = dataset_exo.replace([np.inf, -np.inf], np.nan)
-
-    # Replace NaN values in the error features by the 0.9 quantile value
-    error_columns = ['mass_error_min', 'mass_error_max',
-                     'radius_error_min', 'radius_error_max',
-                     'semi_major_axis_error_min', 'semi_major_axis_error_max',
-                     'eccentricity_error_min', 'eccentricity_error_max',
-                     'star_mass_error_min', 'star_mass_error_max',
-                     'star_radius_error_min', 'star_radius_error_max',
-                     'star_teff_error_min', 'star_teff_error_max']
-
-    for error_col in error_columns:
-        # Find the 0.9 quantile value of the error column
-        max_error = dataset_exo[error_col].quantile(0.9)
-        print(error_col, max_error)
-
-        # Replace NaN by the 0.9 error value
-        dataset_exo[error_col] = dataset_exo[error_col].replace(np.nan, max_error)
-
-    # After filling error NaNs, drop rows missing any core feature
-    core_features = ['mass', 'semi_major_axis', 'eccentricity', 
-                 'star_mass', 'star_radius', 'star_teff', 'radius']
-    dataset_exo = dataset_exo.dropna(subset=core_features)
-
-    # Convert from Jupiter to Earth
-    print("Converting planets mass/radius to Earth masses/radii")
-    dataset_exo = fd.jupiter_to_earth_mass(dataset_exo, 'mass')
-    dataset_exo = fd.jupiter_to_earth_mass(dataset_exo, 'mass_error_max')
-    dataset_exo = fd.jupiter_to_earth_mass(dataset_exo, 'mass_error_min')
-    dataset_exo = fd.jupiter_to_earth_radius(dataset_exo, 'radius')
-    dataset_exo = fd.jupiter_to_earth_radius(dataset_exo, 'radius_error_max')
-    dataset_exo = fd.jupiter_to_earth_radius(dataset_exo, 'radius_error_min')
-
-    # Computes the average error column
-    dataset_exo['mass_error'] = dataset_exo[['mass_error_min', 'mass_error_max']].mean(axis=1).abs()
-    dataset_exo['radius_error'] = dataset_exo[['radius_error_min', 'radius_error_max']].mean(axis=1).abs()
-    dataset_exo['semi_major_axis_error'] = dataset_exo[['semi_major_axis_error_min', 'semi_major_axis_error_max']].mean(axis=1).abs()
-    dataset_exo['eccentricity_error'] = dataset_exo[['eccentricity_error_min', 'eccentricity_error_max']].mean(axis=1).abs()
-    dataset_exo['star_mass_error'] = dataset_exo[['star_mass_error_min', 'star_mass_error_max']].mean(axis=1).abs()
-    dataset_exo['star_radius_error'] = dataset_exo[['star_radius_error_min', 'star_radius_error_max']].mean(axis=1).abs()
-    dataset_exo['star_teff_error'] = dataset_exo[['star_teff_error_min', 'star_teff_error_max']].mean(axis=1).abs()
-
-    dataset_exo = dataset_exo[['mass',              'mass_error',
-                               'semi_major_axis',   'semi_major_axis_error',
-                               'eccentricity',      'eccentricity_error',
-                               'star_mass',         'star_mass_error',
-                               'star_radius',       'star_radius_error',
-                               'star_teff',         'star_teff_error',
-                               'radius',            'radius_error']]
-    
-    if remove_bad_planets:
-        bad_mask = (
-            (dataset_exo['mass_error'] >= dataset_exo['mass']) |
-            (dataset_exo['radius_error'] >= dataset_exo['radius']) |
-            (dataset_exo['semi_major_axis_error'] >= dataset_exo['semi_major_axis']) |
-            (dataset_exo['star_mass_error'] >= dataset_exo['star_mass']) |
-            (dataset_exo['star_radius_error'] >= dataset_exo['star_radius']) |
-            (dataset_exo['star_teff_error'] >= dataset_exo['star_teff'])
-        )
-
-        removed_planets = dataset_exo.index[bad_mask]
-
-        print("Removing", len(removed_planets), "planets with uncertainty >= value")
-
-        dataset_exo = dataset_exo.loc[~bad_mask]
-
-    # Add the solar system planets with the exoplanets
-    if solar:
-        dataset = pd.concat([dataset_exo, dataset_solar_system])
-    else:
-        dataset = dataset_exo
-
-    # Add observables
-    dataset = fd.add_temp_eq_error_dataset(dataset)
-    dataset = fd.add_star_luminosity_error_dataset(dataset)
-
-
-    # Select the same features as the original dataset
-    dataset = dataset[['mass',              'mass_error',
-                       'star_luminosity',   'star_luminosity_error',
-                       'temp_eq',           'temp_eq_error',
-                       'semi_major_axis',   'semi_major_axis_error',
-                       'star_mass',         'star_mass_error',
-                       'star_radius',       'star_radius_error',
-                       'star_teff',         'star_teff_error',
-                       'radius',            'radius_error']]
-
-    print("\nNumber of planets loaded including error columns: ", len(dataset))
-
-    return dataset    
-
+   
 def load_dataset_RV(cat_exoplanet="data/exoplanet.eu_catalog_20-01-26_15_03_11.csv", 
                     feature_names=['mass', 'mass_error_min', 'mass_error_max',
                                    'semi_major_axis',
@@ -697,7 +519,7 @@ def random_forest_regression(dataset,
         )
 
         rf_cv.fit(X_train, y_train)
-        print("\nBest params Random Forest:")
+        print("\nBest paramaters Random Forest:")
         for param, value in rf_cv.best_params_.items():
             print(f"{param}: {value}")
 
